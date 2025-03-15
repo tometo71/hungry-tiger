@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiger Game</title>
+    <style>
+        #gameCanvas {
+            border: 2px solid black;
+            margin: 20px auto;
+            display: block;
+            background-color: #f4f4f4;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .controlRow {
+            display: flex;
+            justify-content: center;
+            margin: 5px;
+        }
+        .btn {
+            width: 50px;
+            height: 50px;
+            margin: 10px;
+            font-size: 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .btn:hover {
+            background-color: #45a049;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+        }
+        .btn:active {
+            background-color: #388e3c;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        #speedControl {
+            margin: 20px auto;
+            display: block;
+            width: 80%;
+        }
+        #speedLabel {
+            text-align: center;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="300" height="350"></canvas>
+
+<!-- Speed control slider -->
+<div id="speedLabel">
+    <label for="speedControl">Speed</label>
+    <input type="range" id="speedControl" min="50" max="500" step="10" value="200">
+</div>
+
+<!-- Control buttons -->
+<div id="controls">
+    <div class="controlRow">
+        <button class="btn" id="upBtn">↑</button>
+    </div>
+    <div class="controlRow">
+        <button class="btn" id="leftBtn">←</button>
+        <button class="btn" id="rightBtn">→</button>
+    </div>
+    <div class="controlRow">
+        <button class="btn" id="downBtn">↓</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const tigerImg = new Image(); // সাপের ইমেজের পরিবর্তে বাঘের ইমেজ
+const foodImg = new Image();
+tigerImg.src = "52.png";  // বাঘের কাস্টম ইমেজ
+foodImg.src = "92.jpg";    // খাবারের ইমেজ    
+
+const eatSound = new Audio("sound2.mp3");  
+const tigerSound = new Audio("sound.mp3");  // সাপের সাউন্ডের পরিবর্তে বাঘের সাউন্ড
+
+let box = 30;  // বাঘ ও খাবারের সাইজ বড় করা হয়েছে
+let tiger = [{ x: 10 * box, y: 10 * box }];
+let food = { x: Math.floor(Math.random() * 10) * box, y: Math.floor(Math.random() * 10) * box };
+let direction = "RIGHT";  
+let score = 0;
+let speed = 200;  // শুরুতে স্পিড 200
+let gameRunning = false;  
+let angle = 0; // বাঘের মুখের কোণ
+
+// **Control button event listeners**
+document.getElementById("upBtn").addEventListener("click", function () {
+    if (direction !== "DOWN") direction = "UP";
+});
+
+document.getElementById("downBtn").addEventListener("click", function () {
+    if (direction !== "UP") direction = "DOWN";
+});
+
+document.getElementById("leftBtn").addEventListener("click", function () {
+    if (direction !== "RIGHT") direction = "LEFT";
+});
+
+document.getElementById("rightBtn").addEventListener("click", function () {
+    if (direction !== "LEFT") direction = "RIGHT";
+});
+
+// **স্পিড কন্ট্রোলার**
+const speedControl = document.getElementById("speedControl");
+speedControl.addEventListener("input", function () {
+    speed = parseInt(speedControl.value);
+});
+
+// **গেম আপডেট ফাংশন**
+function drawGame() {
+    if (!gameRunning || direction === null) return;  
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // খাবার আঁকা
+    ctx.drawImage(foodImg, food.x, food.y, box, box);
+
+    // বাঘ আঁকা
+    tiger.forEach((part) => {
+        ctx.save(); // সাপের বা বাঘের মুখ ঘুরানোর জন্য
+        ctx.translate(part.x + box / 2, part.y + box / 2);
+        ctx.rotate(angle * Math.PI / 180);  // মুখের কোণ ঘোরানো
+        ctx.drawImage(tigerImg, -box / 2, -box / 2, box, box); // বাঘ আঁকা
+        ctx.restore();
+    });
+
+    let tigerX = tiger[0].x;
+    let tigerY = tiger[0].y;
+
+    if (direction === "LEFT") tigerX -= box;
+    if (direction === "RIGHT") tigerX += box;
+    if (direction === "UP") tigerY -= box;
+    if (direction === "DOWN") tigerY += box;
+
+    // দেয়ালে লাগলে বিপরীত পাশে চলে যাবে
+    if (tigerX < 0) tigerX = canvas.width - box;
+    if (tigerX >= canvas.width) tigerX = 0;
+    if (tigerY < 0) tigerY = canvas.height - box;
+    if (tigerY >= canvas.height) tigerY = 0;
+
+    let newHead = { x: tigerX, y: tigerY };
+
+    // যদি বাঘ খাবারের উপর যায়
+    if (tigerX === food.x && tigerY === food.y) {
+        eatSound.play();
+        score++;
+        food = { x: Math.floor(Math.random() * 10) * box, y: Math.floor(Math.random() * 10) * box };
+        if (score % 5 === 0) speed -= 10;  
+    }
+
+    tiger.pop();  // বাঘ বড় হবে না, কিন্তু হেড প্রতিবার নতুন করে আসবে
+    tiger.unshift(newHead);  // হেডটা সবার আগে বাড়বে
+
+    // নিজের শরীরে লাগলে স্কোর রিসেট হবে, কিন্তু গেম ওভার হবে না
+    if (collision(newHead, tiger.slice(1))) {
+        score = 0;  
+        tiger = [{ x: 10 * box, y: 10 * box }];  
+        direction = null;  
+        gameRunning = false;  
+    }
+
+    // মাঝে মাঝে বাঘ নিজে সাউন্ড করবে
+    if (Math.random() < 0.02) {
+        tigerSound.play();
+    }
+
+    // স্কোর দেখানো
+    ctx.fillStyle = "black";
+    ctx.font = "20px Arial";
+    ctx.fillText("Score: " + score, 10, 20);
+
+    setTimeout(drawGame, speed);
+}
+
+// **Collision Detection**
+function collision(head, array) {
+    return array.some(part => head.x === part.x && head.y === part.y);
+}
+
+// গেম শুরু হবে যখন প্রথম বাটন চাপা হবে
+gameRunning = true;  
+drawGame();
+</script>
+
+</body>
+</html>
